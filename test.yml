@@ -1,11 +1,14 @@
 ---
-- hosts: 35.200.49.3
+- hosts: 35.187.194.244
   sudo: yes
   vars:
     mysql_user_name: ginga
     mysql_user_password: ginga
   tasks:
-
+- hosts: VM-back
+  tasks:
+  - name: Add authorized key ansible user
+    authorized_key: user=ansible key="{{ lookup('file', '/Users/seoginga/.ssh/id_rsa.pub') }}"
     - name: Install libselinux-python
       yum: name=libselinux-python state=present
 
