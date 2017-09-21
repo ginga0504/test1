@@ -1,0 +1,93 @@
+---
+- hosts: 35.200.49.3
+  sudo: yes
+  vars:
+    mysql_user_name: ginga
+    mysql_user_password: ginga
+  tasks:
+
+    - name: Install libselinux-python
+      yum: name=libselinux-python state=present
+
+    - name: SELinuxのDisable設定
+      selinux: state=disabled
+
+    #
+    # Apache
+    #
+    - name: Apacheをインストール
+      yum: name=httpd
+
+    - name: Apacheを起動
+      service: name=httpd state=started enabled=yes
+
+    - name: DocumentRootを/gingaに変更
+      replace: 
+        dest=/etc/httpd/conf/httpd.conf
+        regexp='DocumentRoot "/var/www/html"'
+        replace='DocumentRoot "/vagrant"'
+      notify:
+        - restart httpd
+
+    - name: .htaccessを有効にする
+      replace: 
+        dest=/etc/httpd/conf/httpd.conf
+        regexp='AllowOverride None'
+        replace='AllowOverride All'
+      notify:
+        - restart httpd
+
+    #
+    # PHP
+    #
+    - name: PHPをインストール
+      yum: name={{item}}
+      with_items:
+        - php
+        - php-mbstring
+        - php-mysql
+
+    - name: PHPをタイムゾーンの設定
+      replace: >
+        dest=/etc/php.ini
+        regexp="^;date\.timezone ="
+        replace="date.timezone = Asia/Tokyo"
+
+    #
+    # MySQL5.6
+    #
+    - name: MySQL5.6のリポジトリを追加
+      command: >
+        yum -y install http://dev.mysql.com/get/mysql-community-release-el6-5.noarch.rpm
+        creates=/etc/yum.repos.d/mysql-community.repo
+
+    - name: MySQLをインストール
+      yum: name={{item}}
+      with_items:
+        - mysql-server
+        - MySQL-python
+
+    - name: MySQLを起動
+      service: name=mysqld state=started enabled=yes
+
+    - name: MySQLのユーザーを追加
+      mysql_user: name={{ mysql_user_name }} password={{ mysql_user_password }} priv=*.*:ALL
+
+    #
+    # phpMyAdmin
+    #
+    - name: phpMyAdminのインストール
+      yum: name=phpMyAdmin enablerepo=epel
+
+    - name: アクセス権限の変更
+      replace: >
+        dest=/etc/httpd/conf.d/phpMyAdmin.conf
+        regexp=" Deny from All"
+        replace=" #Deny from All"
+      notify:
+        - restart httpd
+
+  handlers:
+    - name: restart httpd
+      service: name=httpd state=restarted
+
